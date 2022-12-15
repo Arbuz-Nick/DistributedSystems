@@ -6,6 +6,7 @@ int process_id;
 double bench_t_start, bench_t_end;
 char *file_path;
 int a = 0;
+int n = 0;
 static double rtclock()
 {
   struct timeval Tp;
@@ -30,7 +31,10 @@ void bench_timer_print()
 {
   FILE *fout;
   fout = fopen(file_path, "a+");
+  printf("opened\n");
   fprintf(fout, "%0.6lf;%d;%d*%d*%d*%d\n", bench_t_end - bench_t_start, process_num, NI, NJ, NK, NL);
+  printf("file printed\n");
+
   printf("Time in seconds = %0.6lf\n", bench_t_end - bench_t_start);
 }
 
@@ -207,16 +211,20 @@ int main(int argc, char **argv)
     }
     printf("All data is on main\n");
   }
-
-  MPI_Barrier(MPI_COMM_WORLD);
   printf("%d: Barrier%d\n", process_id, a++); // 0
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
+  MPI_Barrier(MPI_COMM_WORLD);
+
   // Send A
   for (int i = 0; i < ni / process_num; i++)
     MPI_Scatter(*A + i * process_num * nk, nk, MPI_FLOAT, (*cols_A)[i], nk,
                 MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-  MPI_Barrier(MPI_COMM_WORLD);
   printf("%d: Barrier%d\n", process_id, a++); // 1
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
+  MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 1; i < ni_r; i++)
   {
     if (process_id == 0)
@@ -226,14 +234,19 @@ int main(int argc, char **argv)
       MPI_Recv((*cols_A)[ni_d - 1], nk, MPI_FLOAT, 0, 0, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
   }
-  MPI_Barrier(MPI_COMM_WORLD);
+
   printf("%d: Barrier%d\n", process_id, a++); // 2
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Send D
   for (int i = 0; i < ni / process_num; i++)
     MPI_Scatter(*D + i * process_num * nl, nl, MPI_FLOAT, *(cols_D)[i], nl,
                 MPI_FLOAT, 0, MPI_COMM_WORLD);
   printf("%d: Barrier%d\n", process_id, a++); // 3
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 1; i < ni_r; i++)
   {
@@ -245,6 +258,8 @@ int main(int argc, char **argv)
                MPI_STATUS_IGNORE);
   }
   printf("%d: Barrier%d\n", process_id, a++); // 4
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
 
   MPI_Bcast(*B, nk * nj, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -253,6 +268,8 @@ int main(int argc, char **argv)
   MPI_Bcast(&beta, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
   printf("%d: Barrier%d\n", process_id, a++); // 5
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (process_id == FIRST_THREAD)
@@ -262,6 +279,8 @@ int main(int argc, char **argv)
     bench_timer_start();
   }
   printf("%d: Barrier%d\n", process_id, a++); // 6
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
   kernel_2mm(ni, nj, nk, nl, ni_d,
              alpha, beta,
@@ -269,9 +288,15 @@ int main(int argc, char **argv)
              *cols_A, *B, *C,
              *cols_D);
   printf("%d: Barrier%d\n", process_id, a++); // 7
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 0; i < ni / process_num; i++)
     MPI_Gather(*(cols_D)[i], nl, MPI_FLOAT, *D + i * process_num * nl, nl, MPI_FLOAT, 0, MPI_COMM_WORLD);
+  printf("%d: Barrier%d\n", process_id, a++); // 8
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
+  MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 1; i < ni_r; i++)
   {
     if (process_id == 0)
@@ -280,7 +305,9 @@ int main(int argc, char **argv)
     else if (process_id == i)
       MPI_Send((*cols_D)[ni_d - 1], nl, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
   }
-  printf("%d: Barrier%d\n", process_id, a++); // 8
+  printf("%d: Barrier%d\n", process_id, a++); // 9
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (process_id == FIRST_THREAD)
@@ -289,37 +316,31 @@ int main(int argc, char **argv)
     bench_timer_stop();
     printf("Timer stoped\n");
     bench_timer_print();
-  }
-  /*
-    if (process_id == FIRST_THREAD) {
-      for (int i = 1; i < process_num; i++) {
-        int buf[1];
-        MPI_Status status;
-        MPI_Recv(&buf, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,
-                 &status);
-      }
-    } else {
-      int buf[1] = {process_id};
-      MPI_Send(&buf, 1, MPI_INT, FIRST_THREAD, 0, MPI_COMM_WORLD);
-    }*/
-
-  if (process_id == FIRST_THREAD)
-  {
+    printf("Free A\n");
     free(A);
+    printf("Free d\n");
     free(D);
-    free(cols_A);
+    // free(cols_A);
     free(B);
+    printf("Free C\n");
     free(C);
-    free(cols_D);
+    printf("Free C\n");
+    // free(cols_D);
+    printf("Free C\n");
     free(tmp_AB);
+    printf("Free ABC\n");
     free(tmp_ABC);
   }
-  printf("%d: Barrier%d\n", process_id, a++); // 9
+  printf("%d: Barrier%d\n", process_id, a++); // 10
+  if (process_id == FIRST_THREAD)
+    scanf("%d", &n);
   MPI_Barrier(MPI_COMM_WORLD);
+  printf("%d: Ready to finalize\n", process_id); // 9
   MPI_Finalize();
 
-  if (argc > 42 && !strcmp(argv[0], ""))
-    print_array(ni, nl, *D);
-
+  // if (argc > 42 && !strcmp(argv[0], ""))
+  //   print_array(ni, nl, *D);
+  printf("The end\n");
+  
   return 0;
 }
