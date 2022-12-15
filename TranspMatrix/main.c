@@ -42,11 +42,18 @@ int main(int argc, char **argv) {
                 send_buf[i][j] = 0;
                 recv_buf[i][j] = send_buf[i][j];
             }
-        result[i] = send_buf[my_rank][i];
+        
     }
     MPI_Request send_r[size * size];
     
     MPI_Barrier(MPI_COMM_WORLD);
+    for (int i = 0; i < size * size; i++){
+        result[i] = send_buf[my_rank][i];
+    }
+    if (my_rank == 9)
+    for (int i = 0; i < size * size; i++){
+        printf("%2d: %2d\n", i, result[i]);
+    }
     
     
     int source, dest;
@@ -229,60 +236,12 @@ int main(int argc, char **argv) {
         }
     } 
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
-
-    //printf("My id = %2d, my coords is <%2d, %2d>\n", my_rank, my_coords[0], my_coords[1]);
-    /* // Способ с перессылкой для от одного всем
-    for (int i = 0; i < size; i++){
-        for (int j = 0; j < size; j++){
-            if ((i != 0) || (j != 0)){
-                int target_rank, target_coords[2];
-                target_coords[0] = (my_coords[0] + i) % size;
-                target_coords[1] = (my_coords[1] + j) % size;
-                MPI_Cart_rank(cart_comm, target_coords, &target_rank);
-
-                MPI_Isend(&send_buf[target_rank], 1, MPI_INT, target_rank, 0, MPI_COMM_WORLD, &send_r[target_rank]);
-            }
-        }
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    for (int i = 0; i < size; i++){
-        for (int j = 0; j < size; j++){
-            if ((i != 0) || (j != 0)){
-                int recv_rank, recv_coords[2];
-                recv_coords[0] = (my_coords[0] + i) % size;
-                recv_coords[1] = (my_coords[1] + j) % size;
-                MPI_Cart_rank(cart_comm, recv_coords, &recv_rank);
-
-                MPI_Recv(&recv_buf[recv_rank], 1, MPI_INT, recv_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }   
-    }
     for (int i = 0; i < size*size; i++){
-        if (i != my_rank)
-            MPI_Wait(&send_r[i], MPI_STATUS_IGNORE);
+        result[i] = send_buf[i][my_rank];
     }
-    */
+    if (my_rank == 0) printf("\n");
     MPI_Barrier(MPI_COMM_WORLD);
-    if (my_rank == 0) 
-    for (int i = 0; i < size * size; i++) {
-        for (int j = 0; j < size * size; j++) 
-            printf("%3d  ", send_buf[i][j]);
-        printf("\n");
-    }
-    
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (my_rank == 0) 
-        printf("\n");
-    if (my_rank == 3) 
-    for (int i = 0; i < size * size; i++) {
-        for (int j = 0; j < size * size; j++) 
-            printf("%3d  ", send_buf[i][j]);
-        printf("\n");
-    }
-
+    printf("%2d: %2d\n", my_rank, result[9]);
     MPI_Finalize();
     return 0;
 }
