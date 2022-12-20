@@ -1,2 +1,2 @@
-mpicc main.c -o main -lm
-mpiexec -n $1 ./main 16
+mpicc main.c -o main
+mpiexec -n $1 ./main 
